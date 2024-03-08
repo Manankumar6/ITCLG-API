@@ -7,8 +7,9 @@ const connectDB = require('./db')
 app.use(express.json())
 
 const corsOption = {
-    origin:"http://localhost:3000",
-    methods:"GET,POST,PUT,DELETE, PATCH,HEAD",
+    origin: true,
+    methods: "GET,POST,PUT,DELETE,PATCH,HEAD",
+    credentials: true
 }
 
 app.use(cors(corsOption))
