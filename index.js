@@ -11,6 +11,7 @@ const corsOption = {
     credentials: true
 }
 
+
 app.use(cors(corsOption))
 app.use(express.json())
 app.use('/api', require("./Routes/Data"))
