@@ -4,7 +4,6 @@ const app = express();
 const cors = require('cors')
 const PORT = process.env.PORT || 8080;
 const connectDB = require('./db')
-app.use(express.json())
 
 const corsOption = {
     origin: true,
@@ -13,6 +12,7 @@ const corsOption = {
 }
 
 app.use(cors(corsOption))
+app.use(express.json())
 app.use('/api', require("./Routes/Data"))
 app.use('/api', require("./Routes/GetStudent"))
 
@@ -24,5 +24,5 @@ app.get('/', (req, res) => {
 
 connectDB()
 app.listen(PORT, () => {
-    console.log(`app is listening on the port http://localhost:${PORT} `)
+    console.log(`app is listening on the port ${PORT} `)
 })
