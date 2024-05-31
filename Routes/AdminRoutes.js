@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET;  
 const bcrypt = require('bcryptjs');
 const {Authenticate} = require("../middleware/Auth")
-
+console.log(JWT_SECRET)
 router.get("/me",Authenticate,async(req,res)=>{
     try {
         const user = await Admin.findById(req.user.id)
