@@ -3,18 +3,18 @@ const jwt = require('jsonwebtoken');
 
 const Authenticate = async (req, res, next) => {
     const { token } = req.cookies;
-    console.log(token)
+
     if (!token) {
         return res.status(401).json({ message: "Unauthorized HTTP, Token Not Provided 1" });
     }
-    console.log(token)
+
     try {
         const isVerified = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = await Admin.findById(isVerified.id);
         if (!isVerified.id) {
             return res.status(401).json({ message: "Unauthorized HTTP, Invalid Token Payload 2" });
         }
 
-        req.user = await Admin.findById(isVerified.id);
         if (!req.user) {
             return res.status(401).json({ message: "Unauthorized HTTP, Invalid Token 3" });
         }
@@ -31,5 +31,17 @@ const Authenticate = async (req, res, next) => {
         }
     }
 }
-
-module.exports = { Authenticate };
+const AdminAuthorize = (req, res, next) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied" });
+    }
+    next();
+}
+const checkInitialAdmin = async (req, res, next) => {
+    const adminExists = await Admin.findOne({ role: 'admin' });
+    if (adminExists) {
+      return res.status(403).json({ message: 'Admin already exists' });
+    }
+    next();
+  };
+module.exports = { Authenticate,AdminAuthorize,checkInitialAdmin };
