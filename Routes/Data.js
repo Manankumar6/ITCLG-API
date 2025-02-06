@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Student = require('../model/User');
 const { body, validationResult } = require('express-validator');
+const { AdminAuthorize, Authenticate } = require('../middleware/Auth');
 const cloudinary = require('cloudinary').v2;
 
 cloudinary.config({
@@ -10,7 +11,7 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_SECRET_KEY
 });
 
-router.post('/createstudent', [
+router.post('/createstudent', Authenticate,AdminAuthorize, [
     body('name').isLength({ min: 3, max: 25 }).withMessage('Name must be between 3 and 25 characters'),
     body('card').isLength({ min: 4, max: 10 }).withMessage('Card Id should be at least 4 characters')
 ], async (req, res) => {
@@ -20,7 +21,7 @@ router.post('/createstudent', [
     if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
     }
-
+    console.log(req)
     try {
         const existStudent = await Student.findOne({ card });
         if (existStudent) {
