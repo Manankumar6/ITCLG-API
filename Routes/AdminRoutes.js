@@ -70,7 +70,7 @@ router.post('/signup', async (req, res) => {
 
 // User login
 router.post('/login', async (req, res) => {
-    // console.log(req)
+
   try {
     const { email, password } = req.body;
 
@@ -113,7 +113,12 @@ router.post('/login', async (req, res) => {
 
 // User logout
 router.post('/logout', (req, res) => {
-  res.clearCookie('token'); // Clear the token cookie
+  res.cookie('token', '', { 
+    httpOnly: true, 
+    secure: true, 
+    sameSite: 'None', 
+    expires: new Date(0) // Expire immediately
+  });
   res.status(200).json({ message: 'Logged out successfully' });
 });
 

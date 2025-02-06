@@ -12,7 +12,7 @@ const cookieParser = require('cookie-parser');
 
 const corsOption = {
     origin: true,
-    methods: "GET,POST,PUT,DELETE,PATCH,HEAD",
+    methods: "GET,POST,PUT,DELETE,PATCH",
     credentials: true
 }
 // Cloudinary Configuration
