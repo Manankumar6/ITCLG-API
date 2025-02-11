@@ -3,7 +3,7 @@ const router = express.Router();
 const Admin = require('../model/Admin');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { Authenticate, checkInitialAdmin } = require('../middleware/Auth');
+const { Authenticate, checkInitialAdmin, AdminAuthorize } = require('../middleware/Auth');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -18,7 +18,7 @@ router.get('/me', Authenticate, async (req, res) => {
     res.status(200).json({ success: true, user });
   } catch (error) {
     console.error('Error fetching user profile:', error);
-    res.status(500).json({ message: 'Server error' });
+   return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -59,12 +59,12 @@ router.post('/signup', async (req, res) => {
     };
 
     // Send a success response
-    res.status(201)
+  return  res.status(201)
       .cookie('token', token, options)
       .json({ message: 'User created successfully' });
   } catch (error) {
     console.error('Error in /signup route:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+   return res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
@@ -92,7 +92,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Generate a JWT token
-    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
 
     const options = {
       maxAge: 7 * 24 * 60 * 60 * 1000, // Set to environment variable's value
@@ -102,12 +102,12 @@ router.post('/login', async (req, res) => {
     };
 
     // Set the token as a cookie in the response
-    res.status(200)
+  return res.status(200)
       .cookie('token', token, options)
       .json({ message: 'Login successful' });
   } catch (error) {
     console.error('Error in /login route:', error);
-    res.status(500).json({ message: 'Server error' });
+   return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -119,7 +119,7 @@ router.post('/logout', (req, res) => {
     sameSite: 'None', 
     expires: new Date(0) // Expire immediately
   });
-  res.status(200).json({ message: 'Logged out successfully' });
+ return res.status(200).json({ message: 'Logged out successfully' });
 });
 
 // Initial admin setup
@@ -134,10 +134,44 @@ router.post('/initial-admin', Authenticate,checkInitialAdmin, async (req, res) =
     user.role = 'admin';
     await user.save();
 
-    res.status(200).json({ message: 'User promoted to admin successfully', user });
+   return res.status(200).json({ message: 'User promoted to admin successfully', user });
   } catch (error) {
     console.error('Error promoting user to admin:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+   return res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+router.get('/getalladmins', Authenticate,AdminAuthorize , async (req, res) => {
+  try {
+    // Fetch all admin users
+    const admins = await Admin.find(); 
+
+    if (admins.length > 0) {
+      return res.status(200).json({ admins });
+    } else {
+      return res.status(404).json({ message: "No admins found" });
+    }
+  } catch (error) {
+    console.error('Error fetching admins:', error);
+    return res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+router.delete('/deleteadmin/:id', Authenticate, AdminAuthorize, async (req, res) => {
+  try {
+    const { id } = req.params; // Get the admin ID from the request params
+
+    // Find the admin by ID and delete
+    const deletedAdmin = await Admin.findByIdAndDelete(id);
+
+    if (!deletedAdmin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    // Send a success response
+    return res.status(200).json({ message: 'Admin deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting admin:', error);
+    return res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

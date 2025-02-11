@@ -21,7 +21,7 @@ router.post('/createstudent', Authenticate,AdminAuthorize, [
     if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
     }
-    console.log(req)
+  
     try {
         const existStudent = await Student.findOne({ card });
         if (existStudent) {
@@ -39,10 +39,10 @@ router.post('/createstudent', Authenticate,AdminAuthorize, [
             image: cloudinaryResponse.secure_url // Save the secure URL returned by Cloudinary
         });
 
-        res.status(200).json({ message: 'Create Successfully' });
+      return  res.status(200).json({ message: 'Create Successfully' });
     } catch (error) {
         console.error(error);
-        res.status(400).json({ message: 'Invalid Details' });
+       return res.status(400).json({ message: 'Invalid Details' });
     }
 });
 
