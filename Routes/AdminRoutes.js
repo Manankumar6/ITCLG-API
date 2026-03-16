@@ -4,6 +4,7 @@ const Admin = require('../model/Admin');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Authenticate, checkInitialAdmin, AdminAuthorize } = require('../middleware/Auth');
+const Attendance = require('../model/Attendance');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -175,4 +176,102 @@ router.delete('/deleteadmin/:id', Authenticate, AdminAuthorize, async (req, res)
   }
 });
 
+router.get(
+  "/getattendance",
+  Authenticate,
+  AdminAuthorize,
+  async (req, res) => {
+    try {
+
+      const { filter } = req.query;
+
+      const today = new Date();
+      today.setHours(0,0,0,0);
+
+      // -----------------------------
+      // TODAY ATTENDANCE
+      // -----------------------------
+      if (filter === "today") {
+
+        const attendance = await Attendance.find({
+          date: today
+        })
+        .populate("student", "name card course image")
+        .sort({ date: -1 });
+
+        return res.status(200).json({
+          type: "today",
+          attendance
+        });
+      }
+
+      // -----------------------------
+      // MONTH BASED FILTER
+      // -----------------------------
+
+      let months = 1;
+
+      if (filter === "3months") months = 3;
+      if (filter === "6months") months = 6;
+
+      const startDate = new Date();
+      startDate.setMonth(startDate.getMonth() - months);
+
+      const attendance = await Attendance.find({
+        date: { $gte: startDate }
+      }).populate("student", "name card course image");
+
+      // Group attendance by student
+      const studentMap = {};
+
+      attendance.forEach(record => {
+
+        const studentId = record.student._id.toString();
+
+        if (!studentMap[studentId]) {
+          studentMap[studentId] = {
+            student: record.student,
+            total: 0,
+            present: 0
+          };
+        }
+
+        studentMap[studentId].total += 1;
+
+        if (record.status === "present") {
+          studentMap[studentId].present += 1;
+        }
+
+      });
+
+      const result = Object.values(studentMap).map(item => {
+
+        const percentage =
+          item.total === 0
+            ? 0
+            : ((item.present / item.total) * 100).toFixed(2);
+
+        return {
+          student: item.student,
+          totalDays: item.total,
+          presentDays: item.present,
+          percentage: percentage + "%"
+        };
+
+      });
+
+      res.status(200).json({
+        type: "summary",
+        months,
+        data: result
+      });
+
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({
+        message: "Internal Server Error"
+      });
+    }
+  }
+);
 module.exports = router;

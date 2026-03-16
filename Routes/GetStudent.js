@@ -2,7 +2,7 @@ const express = require('express')
 const router = express.Router()
 const Student = require("../model/User")
 const { Authenticate, AdminAuthorize } = require('../middleware/Auth')
-
+const Attendance = require("../model/Attendance");
 
 router.post('/getstudent',async(req,res)=>{
     const {cardId} = req.body
@@ -52,6 +52,67 @@ router.delete("/deletestudent/:id", Authenticate, AdminAuthorize, async (req, re
         console.error("Error deleting student:", error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
+});
+
+
+
+
+router.post("/markattendance", async (req, res) => {
+  const { cardId } = req.body;
+
+  try {
+
+    const student = await Student.findOne({ card: cardId });
+
+    if (!student) {
+      return res.status(404).json({
+        message: "Student not found"
+      });
+    }
+
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    // Delete records older than 6 months
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    await Attendance.deleteMany({
+      date: { $lt: sixMonthsAgo }
+    });
+
+
+
+    const alreadyMarked = await Attendance.findOne({
+      student: student._id,
+      date: today
+    });
+
+    if (alreadyMarked) {
+      return res.status(400).json({
+        message: "Attendance already marked today"
+      });
+    }
+
+    const attendance = new Attendance({
+      student: student._id,
+      date: today,
+      status: "present"
+    });
+
+    await attendance.save();
+
+    res.json({
+      success: true,
+      message: "Attendance marked successfully",
+      student
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: "Server error"
+    });
+  }
 });
 
 module.exports = router
