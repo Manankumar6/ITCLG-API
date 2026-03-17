@@ -183,31 +183,40 @@ router.get(
   async (req, res) => {
     try {
 
-      const { filter } = req.query;
+      const { filter, card } = req.query;
 
       const today = new Date();
       today.setHours(0,0,0,0);
 
-      // -----------------------------
+      // -------------------------
       // TODAY ATTENDANCE
-      // -----------------------------
+      // -------------------------
       if (filter === "today") {
 
-        const attendance = await Attendance.find({
-          date: today
-        })
-        .populate("student", "name card course image")
-        .sort({ date: -1 });
+        let query = { date: today };
+
+        const attendance = await Attendance.find(query)
+          .populate("student", "name card course image")
+          .sort({ date: -1 });
+
+        // search filter
+        const filtered = card
+          ? attendance.filter(
+              (a) =>
+                a.student?.card?.toLowerCase()
+                  .includes(card.toLowerCase())
+            )
+          : attendance;
 
         return res.status(200).json({
           type: "today",
-          attendance
+          attendance: filtered
         });
       }
 
-      // -----------------------------
-      // MONTH BASED FILTER
-      // -----------------------------
+      // -------------------------
+      // MONTH FILTER
+      // -------------------------
 
       let months = 1;
 
@@ -221,7 +230,14 @@ router.get(
         date: { $gte: startDate }
       }).populate("student", "name card course image");
 
-      // Group attendance by student
+      // Get total school days
+      const totalDays = await Attendance.distinct("date", {
+        date: { $gte: startDate }
+      });
+
+      const totalSchoolDays = totalDays.length;
+
+      // Group by student
       const studentMap = {};
 
       attendance.forEach(record => {
@@ -231,12 +247,9 @@ router.get(
         if (!studentMap[studentId]) {
           studentMap[studentId] = {
             student: record.student,
-            total: 0,
             present: 0
           };
         }
-
-        studentMap[studentId].total += 1;
 
         if (record.status === "present") {
           studentMap[studentId].present += 1;
@@ -244,21 +257,30 @@ router.get(
 
       });
 
-      const result = Object.values(studentMap).map(item => {
+      let result = Object.values(studentMap).map(item => {
 
         const percentage =
-          item.total === 0
+          totalSchoolDays === 0
             ? 0
-            : ((item.present / item.total) * 100).toFixed(2);
+            : ((item.present / totalSchoolDays) * 100).toFixed(2);
 
         return {
           student: item.student,
-          totalDays: item.total,
+          totalDays: totalSchoolDays,
           presentDays: item.present,
           percentage: percentage + "%"
         };
 
       });
+
+      // search filter
+      if (card) {
+        result = result.filter((item) =>
+          item.student?.card
+            ?.toLowerCase()
+            .includes(card.toLowerCase())
+        );
+      }
 
       res.status(200).json({
         type: "summary",
