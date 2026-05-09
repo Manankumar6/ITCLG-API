@@ -3,6 +3,7 @@ const router = express.Router()
 const Student = require("../model/User")
 const { Authenticate, AdminAuthorize } = require('../middleware/Auth')
 const Attendance = require("../model/Attendance");
+const Result = require('../model/Result');
 
 router.post('/getstudent',async(req,res)=>{
     const {cardId} = req.body
@@ -19,7 +20,20 @@ router.post('/getstudent',async(req,res)=>{
        return res.status(400).json({message:"Internal Server Error "})
     }
 })
-
+router.get("/get-certificate/:cardId",  async (req, res) => {
+  try {
+    // Find result by the custom studentId (card) and populate student details
+    const result = await Result.findOne({ studentId: req.params.cardId }).populate("student");
+    
+    if (!result) {
+      return res.status(404).json({ message: "Certificate not found" });
+    }
+    
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ message: "Server Error" });
+  }
+});
 router.get("/getallstudent",Authenticate,AdminAuthorize ,async (req, res) => {
     try {
        

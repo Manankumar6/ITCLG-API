@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Authenticate, checkInitialAdmin, AdminAuthorize } = require('../middleware/Auth');
 const Attendance = require('../model/Attendance');
+const Result = require('../model/Result');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -293,6 +294,73 @@ router.get(
       res.status(500).json({
         message: "Internal Server Error"
       });
+    }
+  }
+);
+
+// Route to save student marks and certificate details
+router.post(
+  "/save-result",
+  Authenticate,       // Middleware to check if user is logged in
+  AdminAuthorize,    // Middleware to check if user is an Admin
+  async (req, res) => {
+    try {
+      const {
+        studentObjectId,
+        studentId,
+        dob,
+        serialNo,
+        completionDate,
+        theoryGrade,
+        a1, a2,
+        pProj,
+        attendance,
+        total,
+        hasPCert
+      } = req.body;
+
+      // 1. Validation: Check if record already exists for this student
+      const existingResult = await Result.findOne({ student: studentObjectId });
+      if (existingResult) {
+        return res.status(400).json({ 
+          message: "A record for this student already exists. Use update instead." 
+        });
+      }
+
+      // 2. Create new Result document
+      const newResult = new Result({
+        student: studentObjectId,
+        studentId,
+        dob,
+        serialNo,
+        completionDate,
+        theoryExam: { sem: theoryGrade },
+        assignments: { sem1: a1, sem2: a2 },
+        personalityProject: pProj,
+        attendance,
+        grandTotal: total,
+        hasPersonalityCertificate: hasPCert
+      });
+
+      // 3. Save to Database
+      await newResult.save();
+
+      res.status(201).json({
+        success: true,
+        message: "Academic records and certificates saved successfully!"
+      });
+
+    } catch (error) {
+      console.error("Error saving result:", error);
+      
+      // Handle Mongoose Unique constraints (like Duplicate Serial No)
+      if (error.code === 11000) {
+        return res.status(400).json({ 
+          message: "Duplicate Error: Serial Number or Student ID already exists." 
+        });
+      }
+
+      res.status(500).json({ message: "Internal Server Error" });
     }
   }
 );
