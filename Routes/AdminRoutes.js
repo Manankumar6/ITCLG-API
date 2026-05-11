@@ -312,6 +312,7 @@ router.post(
         studentId,
         studentName,
         fatherName,
+        session,
         dob,
         serialNo,
         completionDate,
@@ -332,7 +333,9 @@ router.post(
         studentObjectId,
         {
           name: studentName,
-          fname: fatherName
+          fname: fatherName,
+          session
+
         }
       );
       // Check existing result
