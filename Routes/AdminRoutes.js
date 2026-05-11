@@ -323,8 +323,7 @@ router.post(
         total,
         hasPCert
       } = req.body;
-      console.log( studentName,
-        fatherName,'student and father ')
+    
         // -------------------------------
       // UPDATE STUDENT DETAILS
       // --------------------------------
@@ -522,6 +521,34 @@ router.post(
         success: true,
         message: "Image updated successfully",
         image: student.image
+      });
+
+    } catch (error) {
+
+      console.log(error);
+
+      return res.status(500).json({
+        message: "Internal Server Error"
+      });
+    }
+  }
+);
+
+router.get(
+  "/all-student-records",
+  Authenticate,
+  AdminAuthorize,
+  async (req, res) => {
+
+    try {
+
+      const records = await Result.find()
+        .populate("student")
+        .sort({ createdAt: -1 });
+
+      return res.status(200).json({
+        success: true,
+        records
       });
 
     } catch (error) {
