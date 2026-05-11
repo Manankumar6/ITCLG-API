@@ -310,6 +310,8 @@ router.post(
       const {
         studentObjectId,
         studentId,
+        studentName,
+        fatherName,
         dob,
         serialNo,
         completionDate,
@@ -321,7 +323,19 @@ router.post(
         total,
         hasPCert
       } = req.body;
+      console.log( studentName,
+        fatherName,'student and father ')
+        // -------------------------------
+      // UPDATE STUDENT DETAILS
+      // --------------------------------
 
+      await Student.findByIdAndUpdate(
+        studentObjectId,
+        {
+          name: studentName,
+          fname: fatherName
+        }
+      );
       // Check existing result
       const existingResult = await Result.findOne({
         student: studentObjectId
