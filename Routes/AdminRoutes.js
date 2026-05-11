@@ -6,12 +6,13 @@ const bcrypt = require('bcryptjs');
 const { Authenticate, checkInitialAdmin, AdminAuthorize } = require('../middleware/Auth');
 const Attendance = require('../model/Attendance');
 const Result = require('../model/Result');
-
+const Student = require('../model/User');
+const cloudinary = require('cloudinary').v2;
 const JWT_SECRET = process.env.JWT_SECRET;
 
 // Get current user profile
 router.get('/me', Authenticate, async (req, res) => {
-  
+
   try {
     const user = await Admin.findById(req.user.id);
     if (!user) {
@@ -20,7 +21,7 @@ router.get('/me', Authenticate, async (req, res) => {
     res.status(200).json({ success: true, user });
   } catch (error) {
     console.error('Error fetching user profile:', error);
-   return res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -61,12 +62,12 @@ router.post('/signup', async (req, res) => {
     };
 
     // Send a success response
-  return  res.status(201)
+    return res.status(201)
       .cookie('token', token, options)
       .json({ message: 'User created successfully' });
   } catch (error) {
     console.error('Error in /signup route:', error);
-   return res.status(500).json({ message: 'Server error', error: error.message });
+    return res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
@@ -104,31 +105,31 @@ router.post('/login', async (req, res) => {
     };
 
     // Set the token as a cookie in the response
-  return res.status(200)
+    return res.status(200)
       .cookie('token', token, options)
       .json({ message: 'Login successful' });
   } catch (error) {
     console.error('Error in /login route:', error);
-   return res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
 // User logout
 router.post('/logout', (req, res) => {
-  res.cookie('token', '', { 
-    httpOnly: true, 
-    secure: true, 
-    sameSite: 'None', 
+  res.cookie('token', '', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'None',
     expires: new Date(0) // Expire immediately
   });
- return res.status(200).json({ message: 'Logged out successfully' });
+  return res.status(200).json({ message: 'Logged out successfully' });
 });
 
 // Initial admin setup
-router.post('/initial-admin', Authenticate,checkInitialAdmin, async (req, res) => {
+router.post('/initial-admin', Authenticate, checkInitialAdmin, async (req, res) => {
   try {
     const { user } = req; // Assuming `req.user` contains the authenticated user data
-  
+
     if (!user) {
       return res.status(401).json({ message: 'User not authenticated' });
     }
@@ -136,17 +137,17 @@ router.post('/initial-admin', Authenticate,checkInitialAdmin, async (req, res) =
     user.role = 'admin';
     await user.save();
 
-   return res.status(200).json({ message: 'User promoted to admin successfully', user });
+    return res.status(200).json({ message: 'User promoted to admin successfully', user });
   } catch (error) {
     console.error('Error promoting user to admin:', error);
-   return res.status(500).json({ message: 'Internal Server Error' });
+    return res.status(500).json({ message: 'Internal Server Error' });
   }
 });
 
-router.get('/getalladmins', Authenticate,AdminAuthorize , async (req, res) => {
+router.get('/getalladmins', Authenticate, AdminAuthorize, async (req, res) => {
   try {
     // Fetch all admin users
-    const admins = await Admin.find(); 
+    const admins = await Admin.find();
 
     if (admins.length > 0) {
       return res.status(200).json({ admins });
@@ -187,7 +188,7 @@ router.get(
       const { filter, card } = req.query;
 
       const today = new Date();
-      today.setHours(0,0,0,0);
+      today.setHours(0, 0, 0, 0);
 
       // -------------------------
       // TODAY ATTENDANCE
@@ -203,10 +204,10 @@ router.get(
         // search filter
         const filtered = card
           ? attendance.filter(
-              (a) =>
-                a.student?.card?.toLowerCase()
-                  .includes(card.toLowerCase())
-            )
+            (a) =>
+              a.student?.card?.toLowerCase()
+                .includes(card.toLowerCase())
+          )
           : attendance;
 
         return res.status(200).json({
@@ -301,10 +302,11 @@ router.get(
 // Route to save student marks and certificate details
 router.post(
   "/save-result",
-  Authenticate,       // Middleware to check if user is logged in
-  AdminAuthorize,    // Middleware to check if user is an Admin
+  Authenticate,
+  AdminAuthorize,
   async (req, res) => {
     try {
+
       const {
         studentObjectId,
         studentId,
@@ -312,55 +314,209 @@ router.post(
         serialNo,
         completionDate,
         theoryGrade,
-        a1, a2,
+        a1,
+        a2,
         pProj,
         attendance,
         total,
         hasPCert
       } = req.body;
 
-      // 1. Validation: Check if record already exists for this student
-      const existingResult = await Result.findOne({ student: studentObjectId });
+      // Check existing result
+      const existingResult = await Result.findOne({
+        student: studentObjectId
+      });
+
+      // -----------------------------
+      // UPDATE EXISTING RECORD
+      // -----------------------------
       if (existingResult) {
-        return res.status(400).json({ 
-          message: "A record for this student already exists. Use update instead." 
+
+        existingResult.studentId = studentId;
+        existingResult.dob = dob;
+        existingResult.serialNo = serialNo;
+        existingResult.completionDate = completionDate;
+
+        existingResult.theoryExam = {
+          sem: theoryGrade
+        };
+
+        existingResult.assignments = {
+          sem1: a1,
+          sem2: a2
+        };
+
+        existingResult.personalityProject = pProj;
+        existingResult.attendance = attendance;
+        existingResult.grandTotal = total;
+
+        existingResult.hasPersonalityCertificate = hasPCert;
+
+        await existingResult.save();
+
+        return res.status(200).json({
+          success: true,
+          message: "Student academic record updated successfully!"
         });
       }
 
-      // 2. Create new Result document
+      // -----------------------------
+      // CREATE NEW RECORD
+      // -----------------------------
       const newResult = new Result({
         student: studentObjectId,
         studentId,
         dob,
         serialNo,
         completionDate,
-        theoryExam: { sem: theoryGrade },
-        assignments: { sem1: a1, sem2: a2 },
+
+        theoryExam: {
+          sem: theoryGrade
+        },
+
+        assignments: {
+          sem1: a1,
+          sem2: a2
+        },
+
         personalityProject: pProj,
         attendance,
         grandTotal: total,
         hasPersonalityCertificate: hasPCert
       });
 
-      // 3. Save to Database
       await newResult.save();
 
-      res.status(201).json({
+      return res.status(201).json({
         success: true,
-        message: "Academic records and certificates saved successfully!"
+        message: "Academic records saved successfully!"
       });
 
     } catch (error) {
-      console.error("Error saving result:", error);
-      
-      // Handle Mongoose Unique constraints (like Duplicate Serial No)
+
+      console.error("Error saving/updating result:", error);
+
+      // Duplicate Error
       if (error.code === 11000) {
-        return res.status(400).json({ 
-          message: "Duplicate Error: Serial Number or Student ID already exists." 
+        return res.status(400).json({
+          message: "Duplicate Serial Number or Student ID."
         });
       }
 
-      res.status(500).json({ message: "Internal Server Error" });
+      return res.status(500).json({
+        message: "Internal Server Error"
+      });
+    }
+  }
+);
+router.post(
+  "/update-student-image",
+  Authenticate,
+  AdminAuthorize,
+  async (req, res) => {
+
+    try {
+
+      const { studentId, image } = req.body;
+
+      const student = await Student.findById(studentId);
+
+      if (!student) {
+        return res.status(404).json({
+          message: "Student not found"
+        });
+      }
+
+      // --------------------------------
+      // EXTRACT PUBLIC ID FROM OLD URL
+      // --------------------------------
+
+      const extractPublicId = (imageUrl) => {
+
+        try {
+
+          // Split after /upload/
+          const parts =
+            imageUrl.split('/upload/')[1];
+
+          // Remove version number
+          const withoutVersion =
+            parts.replace(/^v\d+\//, '');
+
+          // Remove extension
+          const publicId =
+            withoutVersion.replace(
+              /\.[^/.]+$/,
+              ""
+            );
+
+          return publicId;
+
+        } catch (error) {
+
+          return null;
+        }
+      };
+
+      // --------------------------------
+      // DELETE OLD IMAGE
+      // --------------------------------
+
+      let publicId = student.imagePublicId;
+
+      // OLD STUDENTS SUPPORT
+      if (!publicId && student.image) {
+
+        publicId = extractPublicId(
+          student.image
+        );
+      }
+
+      // Delete Previous Cloudinary Image
+      if (publicId) {
+
+        await cloudinary.uploader.destroy(
+          publicId
+        );
+      }
+
+      // --------------------------------
+      // UPLOAD NEW IMAGE
+      // --------------------------------
+
+      const uploadedImage =
+        await cloudinary.uploader.upload(
+          image,
+          {
+            folder: "ITC_Students"
+          }
+        );
+
+      // --------------------------------
+      // SAVE NEW IMAGE
+      // --------------------------------
+
+      student.image =
+        uploadedImage.secure_url;
+
+      student.imagePublicId =
+        uploadedImage.public_id;
+
+      await student.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Image updated successfully",
+        image: student.image
+      });
+
+    } catch (error) {
+
+      console.log(error);
+
+      return res.status(500).json({
+        message: "Internal Server Error"
+      });
     }
   }
 );

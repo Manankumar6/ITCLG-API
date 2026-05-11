@@ -10,12 +10,21 @@ router.post('/getstudent',async(req,res)=>{
    
     try {
         const student  = await Student.findOne({card:cardId})
-        
-    if(student){
-          return  res.status(200).send({student})
-        }else{
-           return res.status(400).json({message:"Record Not Found"})
+         if (!student) {
+            return res.status(404).json({
+                message: "Record Not Found"
+            });
         }
+  // Find existing result/certificate
+        const result = await Result.findOne({
+            studentId: cardId
+        });
+
+        return res.status(200).json({
+            student,
+            result: result || null,
+            hasResult: !!result
+        });
     } catch (error) {
        return res.status(400).json({message:"Internal Server Error "})
     }
